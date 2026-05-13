@@ -74,3 +74,50 @@ func TestUndoTwoIndependentChanges(t *testing.T) {
 		t.Errorf("second undo: expected empty stack, got %d items", len(um.UndoStack))
 	}
 }
+
+// TestRedoRestoresYMapFieldsAfterUndo verifies that undoing and then redoing the insertion
+// of a Y.Map into a Y.Array restores the map's field values. The bug: ContentType.Copy
+// used copystructure.Copy, which follows Left/Right item pointers and deep-copies the
+// entire document item graph — causing the test to hang on any integrated Y.Map. When it
+// did complete, the copied items retained their tombstoned state from the undo, so the
+// redo'd map appeared empty. The fix reads values from tombstoned items and creates fresh
+// items via Set, without touching the item linked list.
+func TestRedoRestoresYMapFieldsAfterUndo(t *testing.T) {
+	doc := NewDoc("guid", false, nil, nil, false)
+	arr := doc.GetArray("test")
+	um := newTestUndoManager(arr)
+
+	// PrelimContent is applied inside Integrate, which runs inside the same transaction
+	// as the Push — so the field item is in the same StackItem as the array insertion.
+	arr.Push(ArrayAny{NewYMap(map[string]interface{}{"k": "v"})})
+
+	if arr.GetLength() != 1 {
+		t.Fatalf("expected length 1 after push, got %d", arr.GetLength())
+	}
+
+	// Undo: tombstones both the array item and the field item.
+	result := um.Undo()
+	if result == nil {
+		t.Fatal("Undo returned nil — nothing was undone")
+	}
+	if arr.GetLength() != 0 {
+		t.Fatalf("expected length 0 after undo, got %d", arr.GetLength())
+	}
+
+	// Redo: should restore the array item and its field values.
+	result = um.Redo()
+	if result == nil {
+		t.Fatal("Redo returned nil — nothing was redone")
+	}
+	if arr.GetLength() != 1 {
+		t.Fatalf("expected length 1 after redo, got %d", arr.GetLength())
+	}
+
+	restored, ok := arr.Get(0).(*YMap)
+	if !ok {
+		t.Fatalf("expected *YMap at index 0, got %T", arr.Get(0))
+	}
+	if restored.Get("k") != "v" {
+		t.Errorf("after redo: expected k=v, got %v", restored.Get("k"))
+	}
+}
