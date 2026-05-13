@@ -3,7 +3,7 @@ module github.com/skyterra/y-crdt
 go 1.24.3
 
 require (
-	github.com/bytedance/mockey v1.2.13
+	github.com/bytedance/mockey v1.4.6
 	github.com/mitchellh/copystructure v1.2.0
 )
 
