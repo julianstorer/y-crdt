@@ -99,7 +99,7 @@ func (u *UndoManager) StopCapturing() {
 // Undo last changes on type.
 func (u *UndoManager) Undo() *StackItem {
 	u.Undoing = true
-	res := PopStackItem(u, u.UndoStack, "undo")
+	res := PopStackItem(u, &u.UndoStack, "undo")
 	u.Undoing = false
 	return res
 }
@@ -107,7 +107,7 @@ func (u *UndoManager) Undo() *StackItem {
 // Redo last undo operation.
 func (u *UndoManager) Redo() *StackItem {
 	u.Redoing = true
-	res := PopStackItem(u, u.RedoStack, "redo")
+	res := PopStackItem(u, &u.RedoStack, "redo")
 	u.Redoing = false
 	return res
 }
@@ -120,7 +120,7 @@ func NewStackItem(deletes *DeleteSet, insertions *DeleteSet) *StackItem {
 	}
 }
 
-func PopStackItem(undoManager *UndoManager, stack []*StackItem, eventType string) *StackItem {
+func PopStackItem(undoManager *UndoManager, stack *[]*StackItem, eventType string) *StackItem {
 	// Whether a change happened
 	var result *StackItem
 
@@ -129,10 +129,10 @@ func PopStackItem(undoManager *UndoManager, stack []*StackItem, eventType string
 	doc := undoManager.GetDoc()
 	scopes := undoManager.Scopes
 	Transact(doc, func(trans *Transaction) {
-		for len(stack) > 0 && result == nil {
+		for len(*stack) > 0 && result == nil {
 			store := doc.Store
-			stackItem := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
+			stackItem := (*stack)[len(*stack)-1]
+			*stack = (*stack)[:len(*stack)-1]
 			itemsToRedo := NewSet()
 			var itemsToDelete []*Item
 			performedChange := false
@@ -201,8 +201,9 @@ func PopStackItem(undoManager *UndoManager, stack []*StackItem, eventType string
 
 		for t, subProps := range trans.Changed {
 			// destroy search marker if necessary
-			if subProps.Has(nil) && t.(IAbstractType).GetSearchMarker() != nil {
-				// destroy search marker if necessary
+			// Array items use "" (empty string) as ParentSub in Go (vs null/undefined in JS).
+			// Check both nil and "" to catch both array and legacy cases.
+			if (subProps.Has(nil) || subProps.Has("")) && t.(IAbstractType).GetSearchMarker() != nil {
 				t.(IAbstractType).SetSearchMarker(nil)
 			}
 		}

@@ -662,6 +662,17 @@ func RedoItem(trans *Transaction, item *Item, redoItems Set) *Item {
 		}
 	}
 
+	// For map items: if no left neighbor was found via the redo chain (because the
+	// original item's trace doesn't reach the new parent), seed left with whatever
+	// is currently stored for that key in the new parent. This ensures the redone
+	// item is inserted to the right of any clone-created placeholder, so it wins in
+	// LWW semantics and the placeholder is tombstoned by Integrate.
+	if item.ParentSub != "" && left == nil && parent != nil {
+		if existing := parent.GetMap()[item.ParentSub]; existing != nil {
+			left = existing
+		}
+	}
+
 	redoneItem := NewItem(nextID, left, GetItemLastID(left), right, GetItemID(right), parent, item.ParentSub, item.Content.Copy())
 	item.Redone = &redoneItem.ID
 	KeepItem(redoneItem, true)

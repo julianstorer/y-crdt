@@ -1,10 +1,29 @@
 package y_crdt
 
-import (
-	"fmt"
+import "fmt"
 
-	"github.com/mitchellh/copystructure"
-)
+// cloneYMapIncludingTombstoned copies a YMap's entries using GetMap() so that
+// tombstoned field items are included. This is necessary when Copy() is called
+// during undo/redo: the field items may have been tombstoned by the deletion
+// that is being undone, so ForEach() (used by Clone()) would produce an empty map.
+func cloneYMapIncludingTombstoned(src *YMap) *YMap {
+	m := NewYMap(nil)
+	for key, item := range src.GetMap() {
+		content := item.Content.GetContent()
+		if len(content) == 0 {
+			continue
+		}
+		value := content[len(content)-1]
+		if inner, ok := value.(*YMap); ok {
+			m.Set(key, cloneYMapIncludingTombstoned(inner))
+		} else if at, ok := value.(IAbstractType); ok {
+			m.Set(key, at.Clone())
+		} else {
+			m.Set(key, value)
+		}
+	}
+	return m
+}
 
 var typeRefs = []func(decoder *UpdateDecoderV1) (IAbstractType, error){
 	readYArray,
@@ -33,12 +52,11 @@ func (c *ContentType) IsCountable() bool {
 }
 
 func (c *ContentType) Copy() IAbstractContent {
-	cpType, err := copystructure.Copy(c.Type)
-	if err != nil {
-		return nil
+	ymap, ok := c.Type.(*YMap)
+	if !ok {
+		return NewContentType(c.Type.Clone().(IAbstractType))
 	}
-
-	return NewContentType(cpType.(IAbstractType))
+	return NewContentType(cloneYMapIncludingTombstoned(ymap))
 }
 
 func (c *ContentType) Splice(offset Number) IAbstractContent {
