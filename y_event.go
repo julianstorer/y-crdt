@@ -108,7 +108,7 @@ func (y *YEvent) GetKeys() map[string]EventAction {
 							action = ActionDelete
 							oldValue, err = ArrayLast(prev.Content.GetContent())
 							if err != nil {
-								Log("[crdt] %s.", err.Error())
+								Logf("[crdt] %s.", err.Error())
 								return nil
 							}
 						} else {
@@ -119,7 +119,7 @@ func (y *YEvent) GetKeys() map[string]EventAction {
 							action = ActionUpdate
 							oldValue, err = ArrayLast(prev.Content.GetContent())
 							if err != nil {
-								Log("[crdt] %s.", err.Error())
+								Logf("[crdt] %s.", err.Error())
 								return nil
 							}
 						} else {
@@ -132,7 +132,7 @@ func (y *YEvent) GetKeys() map[string]EventAction {
 						action = ActionDelete
 						oldValue, err = ArrayLast(item.Content.GetContent())
 						if err != nil {
-							Log("[crdt] %s.", err.Error())
+							Logf("[crdt] %s.", err.Error())
 							return nil
 						}
 					} else {
