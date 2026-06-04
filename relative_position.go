@@ -182,8 +182,10 @@ func ReadRelativePosition(decoder *UpdateDecoderV1) *RelativePosition {
 	var itemID *ID
 	var assoc Number
 
-	n, _ := readVarUint(decoder.RestDecoder)
-	switch n {
+	// Read tag with ReadVarUint (concrete uint64). readVarUint returns any holding
+	// uint64; switch cases 0,1,2 are untyped ints and never match that dynamic type.
+	tag := ReadVarUint(decoder.RestDecoder)
+	switch tag {
 	case 0:
 		// case 1: found position somewhere in the linked list
 		itemID, _ = decoder.ReadID()
