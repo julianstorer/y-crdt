@@ -171,8 +171,15 @@ func (y *YXmlElement) Write(encoder *UpdateEncoderV1) {
 	}
 }
 
+// NewYXmlElement creates a Y.XmlElement with its event handlers initialized.
+//
+// EH and DEH must be set before the element is integrated and edited; without
+// them, transaction cleanup dereferences a nil deep-event-handler when a
+// descendant of a previously-committed element is edited.
 func NewYXmlElement(nodeName string) *YXmlElement {
 	el := &YXmlElement{NodeName: nodeName}
 	el.PrelimAttrs = make(map[string]interface{})
+	el.EH = NewEventHandler()
+	el.DEH = NewEventHandler()
 	return el
 }
